@@ -5,7 +5,7 @@ import {
     Observer
 } from 'rxjs';
 import {
-    //tap,
+    tap,
     pluck,
     switchMap,
     map,
@@ -37,6 +37,7 @@ function searchGithubRepos(input$: Observable<Event>): Observable<GithubReposito
         filter(isNotEmpty),
         debounceTime(800),
         distinctUntilChanged(),
+        tap(searchString => console.info('searching for github repositories: ', searchString)),
         switchMap(loadFromGithub),
         //tap(data => console.log('returned from loadFromGithub method', data))
     );

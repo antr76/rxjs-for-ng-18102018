@@ -1,16 +1,18 @@
 import {
-    from,
     fromEvent,
-    Observable
+    Observable,
+    of,
+    Observer
 } from 'rxjs';
 import {
-    tap,
+    //tap,
     pluck,
     switchMap,
     map,
     filter,
     distinctUntilChanged,
-    debounceTime
+    debounceTime,
+    catchError
 } from 'rxjs/operators';
 
 // Import styles fot the whole app.
@@ -20,16 +22,23 @@ import './styles.css';
 const inputElement = document.querySelector('#input') as Element;
 const input$ = fromEvent(inputElement, 'input');
 
-searchGithubRepos(input$).subscribe(renderData);
+searchGithubRepos(input$).subscribe(
+    githubRepos => {
+        console.log('Emitted new value', githubRepos);
+        renderData(githubRepos);
+    },
+    err => console.error('Error occurred while retrieving github repositories: ', err),
+    () => console.log('Stream completed')
+);
 
 function searchGithubRepos(input$: Observable<Event>): Observable<GithubRepository[]> {
     return input$.pipe(
         pluck<Event, string>('target', 'value'),
         filter(isNotEmpty),
-        debounceTime(500),
+        debounceTime(800),
         distinctUntilChanged(),
         switchMap(loadFromGithub),
-        tap(console.log)
+        //tap(data => console.log('returned from loadFromGithub method', data))
     );
 }
 
@@ -68,19 +77,35 @@ function mapToGithubRepository(items: GithubRepositoryInfo[]): GithubRepository[
 function loadFromGithub(search: string): Observable<GithubRepository[]> {
     const url = `https://api.github.com/search/repositories?q=${search}&order=desc&sort=stars`;
 
-    return fetchData(url)
+    const hithubRepos$ = fetchData(url)
         .pipe(
+            //tap(() => console.log('fetchData start')),
             pluck<{}, GithubRepositoryInfo[]>('items'),
             //tap(data => console.log('before map', data)),
             map(mapToGithubRepository),
-            //tap(data => console.log('after map', data)),
+            catchError(_err => of([])),
+            //tap(data => console.log('return value', data)),
         );
+
+        return hithubRepos$;
 }
 
-function fetchData(url: string): Observable<GithubRepositoryInfo> {
-    return from(
-        fetch(url).then(response => response.json())
-    );
+function fetchData<T>(url: string): Observable<T> {
+
+    return Observable.create((observer: Observer<T>) => {
+        fetch(url)
+            .then(response => response.json())
+            .then((data: T) => {
+                observer.next(data);
+                observer.complete();
+            })
+            .catch(err => observer.error(err));
+
+            return function onUnsubscribe() {
+                console.log('Stream unsubscribed');
+            }
+    });
+
 }
 
 class GithubRepository {

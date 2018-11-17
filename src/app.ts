@@ -1,63 +1,63 @@
 import {
     fromEvent,
     Observable,
+    Observer,
     of,
-    Observer
 } from 'rxjs';
 import {
-    tap,
+    catchError,
+    debounceTime,
+    distinctUntilChanged,
+    filter,
+    map,
     pluck,
     switchMap,
-    map,
-    filter,
-    distinctUntilChanged,
-    debounceTime,
-    catchError
+    tap,
 } from 'rxjs/operators';
 
 // Import styles fot the whole app.
 // Do not do it in the index.html it will not work!
 import './styles.css';
 
-const inputElement = document.querySelector('#input') as Element;
-const input$ = fromEvent(inputElement, 'input');
+const inputElement: Element = document.querySelector('#input') as Element;
+const input$: Observable<Event> = fromEvent(inputElement, 'input');
 
 searchGithubRepos(input$).subscribe(
-    githubRepos => {
+    (githubRepos: GithubRepository[]) => {
         console.log('Emitted new value', githubRepos);
         renderData(githubRepos);
     },
-    err => console.error('Error occurred while retrieving github repositories: ', err),
+    (err: Error) => console.error('Error occurred while retrieving github repositories: ', err),
     () => console.log('Stream completed')
 );
 
-function searchGithubRepos(input$: Observable<Event>): Observable<GithubRepository[]> {
-    return input$.pipe(
+function searchGithubRepos(inputObs$: Observable<Event>): Observable<GithubRepository[]> {
+    return inputObs$.pipe(
         pluck<Event, string>('target', 'value'),
         filter(isNotEmpty),
         debounceTime(800),
         distinctUntilChanged(),
-        tap(searchString => console.info('searching for github repositories: ', searchString)),
+        tap((searchString: string) => console.log('searching for github repositories: ', searchString)),
         switchMap(loadFromGithub),
-        //tap(data => console.log('returned from loadFromGithub method', data))
+        // tap(data => console.log('returned from loadFromGithub method', data))
     );
 }
 
 function renderData(githubRepos: GithubRepository[]): void {
-    const parentElement = document.querySelector('#output') as Element;
+    const parentElement: Element = document.querySelector('#output') as Element;
     // Remove all child elements from that element
     // After that happened new children will be added.
     parentElement.innerHTML = '';
     githubRepos.forEach(
-        githubRepo => renderRepoInfo(parentElement, githubRepo)
+        (githubRepo: GithubRepository) => renderRepoInfo(parentElement, githubRepo)
     );
 }
 
 function renderRepoInfo(parentElement: Element, repo: GithubRepository): void {
-    const wrapperElement = document.createElement('div') as Element;
+    const wrapperElement: Element = document.createElement('div') as Element;
     parentElement.append(wrapperElement);
     wrapperElement.className = 'repo-wrapper';
-    const wrapperElementContent = `
+    const wrapperElementContent: string = `
         <p class="info">${repo.name}</p>
         <p class="url">
             <a href="${repo.url}" target="_blank">${repo.url}</a>
@@ -67,25 +67,25 @@ function renderRepoInfo(parentElement: Element, repo: GithubRepository): void {
     wrapperElement.innerHTML = wrapperElementContent;
 }
 
-function isNotEmpty(value: string) {
+function isNotEmpty(value: string): boolean {
     return value.length > 0;
 }
 
 function mapToGithubRepository(items: GithubRepositoryInfo[]): GithubRepository[] {
-    return items.map(item => new GithubRepository(item));
+    return items.map((item: GithubRepositoryInfo) => new GithubRepository(item));
 }
 
 function loadFromGithub(search: string): Observable<GithubRepository[]> {
-    const url = `https://api.github.com/search/repositories?q=${search}&order=desc&sort=stars`;
+    const url: string = `https://api.github.com/search/repositories?q=${search}&order=desc&sort=stars`;
 
-    const hithubRepos$ = fetchData(url)
+    const hithubRepos$: Observable<GithubRepository[]> = fetchData(url)
         .pipe(
-            //tap(() => console.log('fetchData start')),
+            // tap(() => console.log('fetchData start')),
             pluck<{}, GithubRepositoryInfo[]>('items'),
-            //tap(data => console.log('before map', data)),
+            // tap(data => console.log('before map', data)),
             map(mapToGithubRepository),
-            catchError(_err => of([])),
-            //tap(data => console.log('return value', data)),
+            catchError((_err: Error) => of([])),
+            // tap(data => console.log('return value', data)),
         );
 
         return hithubRepos$;
@@ -95,16 +95,16 @@ function fetchData<T>(url: string): Observable<T> {
 
     return Observable.create((observer: Observer<T>) => {
         fetch(url)
-            .then(response => response.json())
+            .then((response: Response) => response.json())
             .then((data: T) => {
                 observer.next(data);
                 observer.complete();
             })
-            .catch(err => observer.error(err));
+            .catch((err: Error) => observer.error(err));
 
-            return function onUnsubscribe() {
+            return function onUnsubscribe(): void {
                 console.log('Stream unsubscribed');
-            }
+            };
     });
 
 }
@@ -117,7 +117,7 @@ class GithubRepository {
     public forks: number;
     public stars: number;
 
-    constructor(data: GithubRepositoryInfo) {
+    public constructor(data: GithubRepositoryInfo) {
         this.name = data['name'];
         this.homepage = data['homepage'];
         this.description = data['description'];
@@ -135,4 +135,4 @@ type GithubRepositoryInfo = {
     html_url: string
     forks: number
     stargazers_count: number
-}
+};

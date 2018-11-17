@@ -50,7 +50,7 @@
       "class-name": true,
       "no-console": [
         true,
-        "log",
+        // "log",
         "debug",
         "info",
         "time",
